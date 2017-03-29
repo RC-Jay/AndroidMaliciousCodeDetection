@@ -1,185 +1,311 @@
 from imports import *
+from  DL import *
 
-
-class PreProcess(object):
+class PreProcess():
 
     def __init__(self, path):
 
+
         self.path = path
+        self.dataBenign = {"permissions":[], "isValidAPK":[], "services":[], "receivers":[] }
+        self.dataMalign = {"permissions":[], "isValidAPK":[], "services":[], "receivers":[] }
+        self.vocabPerm = list()
+        self.vocabServ = list()
+        self.vocabRecv = list()
 
         if LOAD_DATA:
-
-            print "Loading features..........."
-            f = open("pickled/XFeats.pkl", 'rb')
-            self.X = pickle.load(f)
+            f = open("pickled/dataDictBenign.pkl", "rb")
+            self.dataBenign = pickle.load(f)
             f.close()
 
-            f = open("pickled/yFeats.pkl", 'rb')
-            self.y = pickle.load(f)
+            f = open("pickled/dataDictMalign.pkl", "rb")
+            self.dataMalign = pickle.load(f)
             f.close()
 
-            self.yNames = Counter(self.y).keys()
-
+            f = open("pickled/vocabLen.pkl", "rb")
+            self.vocabLengths = pickle.load(f)
+            f.close()
 
         else:
 
-            data = gzip.GzipFile(self.path).readlines()
+            self.makeDataDicts()
 
-            self.X = []
-            self.y = []
+            print "Pickling the data dicts and vocabs..."
 
-
-            for dp in data:
-                clean = str(dp).strip("\n").strip(".").split(",")
-                self.X.append(clean[:-1])
-                self.y.append(clean[-1])
-
-            self.yNames = Counter(self.y).keys()
-            self.cleanData()
-
-            f = open("pickled/XFeats.pkl", 'wb')
-            pickle.dump(self.X, f)
+            f = open("pickled/dataDictBenign.pkl", "wb")
+            pickle.dump(self.dataBenign, f)
             f.close()
 
-            f = open("pickled/yFeats.pkl", 'wb')
-            pickle.dump(self.y, f)
+            f = open("pickled/dataDictMalign.pkl", "wb")
+            pickle.dump(self.dataMalign, f)
             f.close()
 
-        if LOAD_AE:
-
-            f = open("pickled/autoencode.pkl", "rb")
-            auto = pickle.load(f)
+            f = open("pickled/vocabPerm.pkl", "wb")
+            pickle.dump(self.vocabPerm, f)
             f.close()
+
+            f = open("pickled/vocabRecv.pkl", "wb")
+            pickle.dump(self.vocabRecv, f)
+            f.close()
+
+            f = open("pickled/vocabServ.pkl", "wb")
+            pickle.dump(self.vocabServ, f)
+            f.close()
+
+
+            self.vocabLengths = {"perm":len(self.vocabPerm), "serv":len(self.vocabServ), \
+                            "recv":len(self.vocabRecv)}
+
+            f = open("pickled/vocabLen.pkl", 'wb')
+            pickle.dump(self.vocabLengths, f)
+            f.close()
+
+
+        if LOAD_FEATS:
+
+            f = open("pickled/feats.pkl", "rb")
+            self.feats = pickle.load(f)
+            f.close()
+
+            f = open("pickled/labels.pkl", "rb")
+            self.labels = pickle.load(f)
+            f.close()
+
         else:
 
-            auto = AutoEncoders(self.X, self.y)
-            auto.fit()
+            self.makeDataFrames()
 
-            # f = open("pickled/autoencode.pkl", "wb")
-            # pickle.dump(auto, f)
-            # f.close()
+            f = open("pickled/feats.pkl", "wb")
+            pickle.dump(self.feats, f)
+            f.close()
 
-        self.X = auto.encode(self.X)
+            f = open("pickled/labels.pkl", "wb")
+            pickle.dump(self.labels, f)
+            f.close()
 
-        dbn = DBN(self.X, self.y)
-        dbn.fit()
-
-    def getFeats(self):
-
-        return self.X, self.y, self.yNames
+        print(self.feats.shape)
+        print(len(mic(self.feats.values[:, :-1].astype(float), self.labels)))
 
 
-    def cleanData(self):
+    def makeDataDicts(self):
 
-        print "Cleaning the raw data.........."
         try:
-            names = {'x1': [], 'x2': [], 'x3': []}
+            print "Processing Benign Folder"
+            count = 1
+            for filename in glob.glob(self.path + "benign/*"):
+                print count
 
-            for i in range(len(self.X)):
-                for j in range(len(self.X[i])):
-                    if j == 1:
-                        if self.X[i][j] in names['x1']:
-                            self.X[i][j] = names['x1'].index(self.X[i][j])
+                a, d, dx = AnalyzeAPK(filename)
+
+
+                self.dataBenign["isValidAPK"].append(a.valid_apk)
+
+                temp = a.get_permissions()
+                if temp:
+
+                    perm = list()
+                    for p in temp:
+                        if p not in self.vocabPerm:
+                            self.vocabPerm.append(p)
+                            perm.append(self.vocabPerm.index(p))
                         else:
-                            print self.X[i][j]
-                            names['x1'].append(self.X[i][j])
-                            self.X[i][j] = names['x1'].index(self.X[i][j])
-                    elif j == 2:
-                        if self.X[i][j] in names['x2']:
-                            self.X[i][j] = names['x2'].index(self.X[i][j])
-                        else:
-                            print self.X[i][j]
-                            names['x2'].append(self.X[i][j])
-                            self.X[i][j] = names['x2'].index(self.X[i][j])
-                    elif j == 3:
-                        if self.X[i][j] in names['x3']:
-                            self.X[i][j] = names['x3'].index(self.X[i][j])
-                        else:
-                            print self.X[i][j]
-                            names['x3'].append(self.X[i][j])
-                            self.X[i][j] = names['x3'].index(self.X[i][j])
-                    else:
-                        self.X[i][j] = float(self.X[i][j])
+                            perm.append(self.vocabPerm.index(p))
 
-            for i in range(len(self.y)):
-
-                if self.y[i] in self.yNames:
-                    self.y[i] = self.yNames.index(self.y[i])
-
+                    self.dataBenign["permissions"].append(perm)
                 else:
-                    raise Exception
+                    self.dataBenign["permissions"].append(list())
+
+                temp = a.get_services()
+                if temp:
+
+                    serv = list()
+                    for p in temp:
+                        if p not in self.vocabServ:
+                            self.vocabServ.append(p)
+                            serv.append(self.vocabServ.index(p))
+                        else:
+                            serv.append(self.vocabServ.index(p))
+
+                    self.dataBenign["services"].append(serv)
+                else:
+                    self.dataBenign["services"].append(list())
+
+                temp = a.get_receivers()
+                if temp:
+
+                    recv = list()
+                    for p in temp:
+                        if p not in self.vocabRecv:
+                            self.vocabRecv.append(p)
+                            recv.append(self.vocabRecv.index(p))
+                        else:
+                            recv.append(self.vocabRecv.index(p))
+
+                    self.dataBenign["receivers"].append(recv)
+                else:
+                    self.dataBenign["receivers"].append(list())
+
+                count += 1
+                if count == MAX_DATA / 2:
+                    break
+        except Exception as e:
+            print e.message, e.args
+            pass
+
+        try:
+            print "Processing Malign Folder"
+            count = 1
+            for filename in glob.glob(self.path + "malign/*"):
+                print count
+
+                a, d, dx = AnalyzeAPK(filename)
+
+                self.dataMalign["isValidAPK"].append(a.valid_apk)
+
+                temp = a.get_permissions()
+                if temp:
+
+                    perm = list()
+                    for p in temp:
+                        if p not in self.vocabPerm:
+                            self.vocabPerm.append(p)
+                            perm.append(self.vocabPerm.index(p))
+                        else:
+                            perm.append(self.vocabPerm.index(p))
+
+                    self.dataMalign["permissions"].append(perm)
+                else:
+                    self.dataMalign["permissions"].append(list())
+
+                temp = a.get_services()
+                if temp:
+
+                    serv = list()
+                    for p in temp:
+                        if p not in self.vocabServ:
+                            self.vocabServ.append(p)
+                            serv.append(self.vocabServ.index(p))
+                        else:
+                            serv.append(self.vocabServ.index(p))
+
+                    self.dataMalign["services"].append(serv)
+                else:
+                    self.dataMalign["services"].append(list())
+
+                temp = a.get_receivers()
+                if temp:
+
+                    recv = list()
+                    for p in temp:
+                        if p not in self.vocabRecv:
+                            self.vocabRecv.append(p)
+                            recv.append(self.vocabRecv.index(p))
+                        else:
+                            recv.append(self.vocabRecv.index(p))
+
+                    self.dataMalign["receivers"].append(recv)
+                else:
+                    self.dataMalign["receivers"].append(list())
+
+                count += 1
+                if count == MAX_DATA / 2:
+                    break
 
         except Exception as e:
-            print "Error in cleaning data."
-            print str(e.args), str(e.message)
+            print e.message, e.args
+            pass
+
+    def makeDataFrames(self):
+
+        try:
+
+            data_len = len(self.dataBenign["isValidAPK"])+1
+            index = np.array(range(1, data_len ))
+            self.dfBenign = pd.DataFrame(index = index)
+
+            isValid = pd.Series(self.dataBenign['isValidAPK'], name="isValidAPK", index = index)
+            self.dfBenign[isValid.name] = isValid
+
+            perm = self.makeHotMatrix(self.dataBenign["permissions"], self.vocabLengths["perm"])
+            columns = self.makeContCol("perm", self.vocabLengths["perm"])
+            temp = pd.DataFrame(perm, columns=columns, index=index)
+            self.dfBenign = self.dfBenign.join(temp)
+
+            serv = self.makeHotMatrix(self.dataBenign["services"], self.vocabLengths["serv"])
+            columns = self.makeContCol("serv", self.vocabLengths["serv"])
+            temp = pd.DataFrame(serv, columns=columns, index=index)
+            self.dfBenign = self.dfBenign.join(temp)
+
+            recv = self.makeHotMatrix(self.dataBenign["receivers"], self.vocabLengths["recv"])
+            columns = self.makeContCol("recv", self.vocabLengths["recv"])
+            temp = pd.DataFrame(recv, columns=columns, index=index)
+            self.dfBenign = self.dfBenign.join(temp)
+
+        except Exception as e:
+            print "Error while creating benign dataframe"
+            print e.args, e.message
             exit(0)
 
-class AutoEncoders(object):
+        try:
 
-    def __init__(self, X, y):
+            index = np.array(range(data_len, 2*data_len-1))
+            self.dfMalign = pd.DataFrame(index=index)
 
-        self.X = np.array(X, dtype=float)
-        self.y = y
-        self.encoding_dim = 3
+            isValid = pd.Series(self.dataMalign['isValidAPK'], name="isValidAPK", index=index)
+            self.dfMalign[isValid.name] = isValid
 
-    def fit(self):
+            perm = self.makeHotMatrix(self.dataMalign["permissions"], self.vocabLengths["perm"])
+            columns = self.makeContCol("perm", self.vocabLengths["perm"])
+            temp = pd.DataFrame(perm, columns=columns, index=index)
+            self.dfMalign = self.dfMalign.join(temp)
 
-        ncol = self.X.shape[1]
-        X_train, X_test, Y_train, Y_test = train_test_split(self.X, self.y, train_size=0.7, random_state=seed(2017))
+            serv = self.makeHotMatrix(self.dataMalign["services"], self.vocabLengths["serv"])
+            columns = self.makeContCol("serv", self.vocabLengths["serv"])
+            temp = pd.DataFrame(serv, columns=columns, index=index)
+            self.dfMalign = self.dfMalign.join(temp)
 
-        input_dim = Input(shape=(ncol,))
-        # DEFINE THE DIMENSION OF ENCODER ASSUMED 10
+            recv = self.makeHotMatrix(self.dataMalign["receivers"], self.vocabLengths["recv"])
+            columns = self.makeContCol("recv", self.vocabLengths["recv"])
+            temp = pd.DataFrame(recv, columns=columns, index=index)
+            self.dfMalign = self.dfMalign.join(temp)
 
-        # DEFINE THE ENCODER LAYER
-        encoded = Dense(self.encoding_dim, activation='relu')(input_dim)
-        # DEFINE THE DECODER LAYER
-        decoded = Dense(ncol, activation='sigmoid')(encoded)
-        # COMBINE ENCODER AND DECODER INTO AN AUTOENCODER MODEL
-        autoencoder = Model(input=input_dim, output=decoded)
-        # CONFIGURE AND TRAIN THE AUTOENCODER
-        autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy')
-        autoencoder.fit(X_train, X_train, nb_epoch=5, batch_size=100, shuffle=True, validation_data=(X_test, X_test))
-        # THE ENCODER TO EXTRACT THE REDUCED DIMENSION FROM THE ABOVE AUTOENCODER
-        self.encoder = Model(input=input_dim, output=encoded)
+        except Exception as e:
+            print "Error while creating malign dataframe"
+            print e.args, e.message
+            exit(0)
+        self.labels =  [0]*self.dfBenign.shape[0] + [1]*self.dfMalign.shape[0]
+        self.feats = pd.concat([self.dfBenign, self.dfMalign])
 
-        # encoded_input = Input(shape=(encoding_dim,))
-        # encoded_out = encoder.predict(X_test)
-        # print encoded_out[0:2]
+        # print(self.df)
+        # print(self.labels)
 
-    def encode(self, dp):
 
-        dp = np.array(dp, dtype=float)
-        encoded_input = Input(shape=(self.encoding_dim,))
-        return self.encoder.predict(dp)
+    def makeHotMatrix(self, vec2D, len):
 
-class DBN(object):
+        hotMat = list()
+        for vec in vec2D:
+            if vec:
+                hotMat.append(self.makeHotVector(vec, len))
+            else:
+                hotMat.append(np.zeros(len, dtype='int'))
+        return hotMat
 
-    def __init__(self, X, y):
+    def makeHotVector(self, vec, len):
 
-        self.X = np.array(X, dtype=float)
-        self.y = y
+        hotVec = np.zeros(len, dtype='int')
+        hotVec[vec] = 1
 
-        svm = SVC()
-        dbn = UnsupervisedDBN(hidden_layers_structure=[256, 512],
-                              batch_size=10,
-                              learning_rate_rbm=0.06,
-                              n_epochs_rbm=2,
-                              activation_function='sigmoid')
+        return hotVec
 
-        self.classifier = Pipeline(steps=[('dbn', dbn),
-                                     ('svm', svm)])
+    def makeContCol(self, base, len):
 
-    def fit(self):
+        col = list()
+        for i in range(len):
+            col.append(base + "_" + str(i+1))
 
-        X_train, X_test, Y_train, Y_test = train_test_split(self.X, self.y, train_size=0.7, random_state=seed(2017))
-        self.classifier.fit(X_train, Y_train)
-
-        return classification_report(Y_test, self.predict(X_test))
-
-    def predict(self, X):
-
-        return self.classifier.predict(X)
+        return col
 
 
 
-PreProcess("data/kddcup.data_10_percent.gz")
+
+PreProcess("/media/jaydeep/Just Tv/Dataset/")

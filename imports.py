@@ -12,6 +12,14 @@ from sklearn.svm import SVC, LinearSVC, NuSVR
 from sklearn.metrics import classification_report
 from dbn.models import UnsupervisedDBN
 from sklearn.pipeline import Pipeline
+from sklearn.feature_selection import mutual_info_classif as mic
+import glob
+from  DL import *
+from androguard.misc import *
 
 LOAD_DATA = True
 LOAD_AE = False
+LOAD_FEATS = True
+MAKE_DATADICTS = True
+
+MAX_DATA = 10
