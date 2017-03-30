@@ -1,10 +1,12 @@
 from imports import *
-from  DL import *
 
 class PreProcess():
 
     def __init__(self, path):
-
+        '''
+        A class to preprocess the dataset and obtain a dataframe that could be easily passed to a classifer.
+        :param path: The path on the disk where dataset(APKs) is stored.
+        '''
 
         self.path = path
         self.dataBenign = {"permissions":[], "isValidAPK":[], "services":[], "receivers":[] }
@@ -28,6 +30,7 @@ class PreProcess():
 
         else:
 
+            # Extract info from APKS and store them in dict with attr as keys
             self.makeDataDicts()
 
             print "Pickling the data dicts and vocabs..."
@@ -52,7 +55,7 @@ class PreProcess():
             pickle.dump(self.vocabServ, f)
             f.close()
 
-
+            # A dict that stores lengths os all vocabularies used.
             self.vocabLengths = {"perm":len(self.vocabPerm), "serv":len(self.vocabServ), \
                             "recv":len(self.vocabRecv)}
 
@@ -73,6 +76,7 @@ class PreProcess():
 
         else:
 
+            # Convert the data stored in dict to a appropriate integer dataframe in pandas
             self.makeDataFrames()
 
             f = open("pickled/feats.pkl", "wb")
@@ -83,23 +87,35 @@ class PreProcess():
             pickle.dump(self.labels, f)
             f.close()
 
-        print(self.feats.shape)
-        print(len(mic(self.feats.values[:, :-1].astype(float), self.labels)))
+        print self.feats
+        print(len(mic(self.feats.values[:, :].astype(float), self.labels)))
 
+    def getFeats(self):
+
+        return (self.feats, self.labels)
 
     def makeDataDicts(self):
+        '''
+        This method extracts info from APKs using Androguard and stores the data in form of dicts as described for
+        self.dataBenign and self.dataMalign.
+
+        :return: Changes take in place.
+        '''
 
         try:
+            # Creating the benign data dict first.
             print "Processing Benign Folder"
             count = 1
             for filename in glob.glob(self.path + "benign/*"):
                 print count
 
+                # The main class that statically analyzes the APK and returns the report
                 a, d, dx = AnalyzeAPK(filename)
 
-
+                # Checking whether the APK is valid according to Androguard
                 self.dataBenign["isValidAPK"].append(a.valid_apk)
 
+                # Adding app permissions as a multi valued attribute
                 temp = a.get_permissions()
                 if temp:
 
@@ -115,6 +131,7 @@ class PreProcess():
                 else:
                     self.dataBenign["permissions"].append(list())
 
+                # Adding app services as a multi valued attribute
                 temp = a.get_services()
                 if temp:
 
@@ -130,6 +147,7 @@ class PreProcess():
                 else:
                     self.dataBenign["services"].append(list())
 
+                # Adding app receivers as a multi valued attribute
                 temp = a.get_receivers()
                 if temp:
 
@@ -162,6 +180,7 @@ class PreProcess():
 
                 self.dataMalign["isValidAPK"].append(a.valid_apk)
 
+                # Adding app permissions as a multi valued attribute
                 temp = a.get_permissions()
                 if temp:
 
@@ -177,6 +196,7 @@ class PreProcess():
                 else:
                     self.dataMalign["permissions"].append(list())
 
+                # Adding app services as a multi valued attribute
                 temp = a.get_services()
                 if temp:
 
@@ -192,6 +212,7 @@ class PreProcess():
                 else:
                     self.dataMalign["services"].append(list())
 
+                # Adding app receivers as a multi valued attribute
                 temp = a.get_receivers()
                 if temp:
 
@@ -216,6 +237,10 @@ class PreProcess():
             pass
 
     def makeDataFrames(self):
+        '''
+        This method converts the data dicts into dataframes suitable for training with further DL algorithms.
+        :return: Changes take in place.
+        '''
 
         try:
 
@@ -308,4 +333,3 @@ class PreProcess():
 
 
 
-PreProcess("/media/jaydeep/Just Tv/Dataset/")
