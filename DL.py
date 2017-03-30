@@ -7,7 +7,7 @@ class AutoEncoders(object):
 
         self.X = np.array(X, dtype=float)
         self.y = y
-        self.encoding_dim = 3
+        self.encoding_dim = 64
 
     def fit(self):
 
@@ -47,7 +47,7 @@ class DBN(object):
         self.y = y
 
         svm = SVC()
-        dbn = UnsupervisedDBN(hidden_layers_structure=[256, 512],
+        dbn = UnsupervisedDBN(hidden_layers_structure=[32, 16, 32, 64],
                               batch_size=10,
                               learning_rate_rbm=0.06,
                               n_epochs_rbm=2,

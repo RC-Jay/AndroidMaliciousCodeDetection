@@ -5,7 +5,7 @@ import scipy as sp
 from keras.layers import Input, Dense
 from keras.models import Model
 from numpy.random import seed
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import train_test_split
 import numpy as np
 import pickle
 from sklearn.svm import SVC, LinearSVC, NuSVR
@@ -16,9 +16,11 @@ from sklearn.feature_selection import mutual_info_classif as mic
 import glob
 from  DL import *
 from androguard.misc import *
+from datetime import datetime as dt
 
 LOAD_DATA = False
+MAKE_DICT = True
 LOAD_AE = False
 LOAD_FEATS = False
 
-MAX_DATA = 200
+MAX_DATA = 502

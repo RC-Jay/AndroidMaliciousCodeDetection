@@ -16,6 +16,8 @@ class PreProcess():
         self.vocabRecv = list()
 
         if LOAD_DATA:
+
+            print("Loading data..")
             f = open("pickled/dataDictBenign.pkl", "rb")
             self.dataBenign = pickle.load(f)
             f.close()
@@ -28,9 +30,10 @@ class PreProcess():
             self.vocabLengths = pickle.load(f)
             f.close()
 
-        else:
+        elif MAKE_DICT:
 
             # Extract info from APKS and store them in dict with attr as keys
+            print("Extracting data from APKs..")
             self.makeDataDicts()
 
             print "Pickling the data dicts and vocabs..."
@@ -66,6 +69,7 @@ class PreProcess():
 
         if LOAD_FEATS:
 
+            print("Loading Features.")
             f = open("pickled/feats.pkl", "rb")
             self.feats = pickle.load(f)
             f.close()
@@ -77,6 +81,7 @@ class PreProcess():
         else:
 
             # Convert the data stored in dict to a appropriate integer dataframe in pandas
+            print("Creating Data Frames..")
             self.makeDataFrames()
 
             f = open("pickled/feats.pkl", "wb")
@@ -88,11 +93,18 @@ class PreProcess():
             f.close()
 
         print self.feats
-        print(len(mic(self.feats.values[:, :].astype(float), self.labels)))
+        #print(len(mic(self.feats.values[:, :].astype(float), self.labels)))
 
     def getFeats(self):
 
         return (self.feats, self.labels)
+
+    def getFeaturesMutualInfoClassif(self):
+
+        micIdx = mic(self.feats.values[:, :].astype(float), self.labels)
+        idx = np.nonzero(micIdx)
+        return (np.array(self.feats)[idx], self.labels[idx])
+
 
     def makeDataDicts(self):
         '''
@@ -103,24 +115,35 @@ class PreProcess():
         '''
 
         try:
+            bt = dt.now()
             # Creating the benign data dict first.
             print "Processing Benign Folder"
             count = 1
             for filename in glob.glob(self.path + "benign/*"):
-                print count
 
-                # The main class that statically analyzes the APK and returns the report
-                a, d, dx = AnalyzeAPK(filename)
+                try:
+                    # The main class that statically analyzes the APK and returns the report
+                    t = dt.now()
+                    a, d, dx = AnalyzeAPK(filename)
+                    print count, "--", os.path.basename(filename), "--", str(dt.now() - t)
+                    temp = list()
+                    temp.append(int(a.valid_apk))
+                    temp.append(a.get_permissions())
+                    temp.append(a.get_services())
+                    temp.append(a.get_receivers())
+                except Exception as  e:
+                    print("Error during analysis of above APK - IGNORED")
+                    print e.message
+                    continue
 
                 # Checking whether the APK is valid according to Androguard
-                self.dataBenign["isValidAPK"].append(a.valid_apk)
+                self.dataBenign["isValidAPK"].append(temp[0])
 
                 # Adding app permissions as a multi valued attribute
-                temp = a.get_permissions()
-                if temp:
+                if temp[1]:
 
                     perm = list()
-                    for p in temp:
+                    for p in temp[1]:
                         if p not in self.vocabPerm:
                             self.vocabPerm.append(p)
                             perm.append(self.vocabPerm.index(p))
@@ -132,11 +155,10 @@ class PreProcess():
                     self.dataBenign["permissions"].append(list())
 
                 # Adding app services as a multi valued attribute
-                temp = a.get_services()
-                if temp:
+                if temp[2]:
 
                     serv = list()
-                    for p in temp:
+                    for p in temp[2]:
                         if p not in self.vocabServ:
                             self.vocabServ.append(p)
                             serv.append(self.vocabServ.index(p))
@@ -148,11 +170,10 @@ class PreProcess():
                     self.dataBenign["services"].append(list())
 
                 # Adding app receivers as a multi valued attribute
-                temp = a.get_receivers()
-                if temp:
+                if temp[3]:
 
                     recv = list()
-                    for p in temp:
+                    for p in temp[3]:
                         if p not in self.vocabRecv:
                             self.vocabRecv.append(p)
                             recv.append(self.vocabRecv.index(p))
@@ -166,26 +187,38 @@ class PreProcess():
                 count += 1
                 if count == MAX_DATA / 2:
                     break
+            print("Total time taken to process benign folder -- ", str(dt.now() - bt))
         except Exception as e:
-            print e.message, e.args
-            pass
+            print e.message
+            exit(0)
 
         try:
+            mt = dt.now()
             print "Processing Malign Folder"
             count = 1
             for filename in glob.glob(self.path + "malign/*"):
-                print count
 
-                a, d, dx = AnalyzeAPK(filename)
+                try:
+                    t = dt.now()
+                    a, d, dx = AnalyzeAPK(filename)
+                    print count, "--", os.path.basename(filename), "--", str(dt.now() - t)
+                    temp = list()
+                    temp.append(int(a.valid_apk))
+                    temp.append(a.get_permissions())
+                    temp.append(a.get_services())
+                    temp.append(a.get_receivers())
+                except Exception as  e:
+                    print("Error during analysis of above APK - IGNORED")
+                    print e.message
+                    continue
 
-                self.dataMalign["isValidAPK"].append(a.valid_apk)
+                self.dataMalign["isValidAPK"].append(temp[0])
 
                 # Adding app permissions as a multi valued attribute
-                temp = a.get_permissions()
-                if temp:
+                if temp[1]:
 
                     perm = list()
-                    for p in temp:
+                    for p in temp[1]:
                         if p not in self.vocabPerm:
                             self.vocabPerm.append(p)
                             perm.append(self.vocabPerm.index(p))
@@ -197,11 +230,10 @@ class PreProcess():
                     self.dataMalign["permissions"].append(list())
 
                 # Adding app services as a multi valued attribute
-                temp = a.get_services()
-                if temp:
+                if temp[2]:
 
                     serv = list()
-                    for p in temp:
+                    for p in temp[2]:
                         if p not in self.vocabServ:
                             self.vocabServ.append(p)
                             serv.append(self.vocabServ.index(p))
@@ -213,11 +245,10 @@ class PreProcess():
                     self.dataMalign["services"].append(list())
 
                 # Adding app receivers as a multi valued attribute
-                temp = a.get_receivers()
                 if temp:
 
                     recv = list()
-                    for p in temp:
+                    for p in temp[3]:
                         if p not in self.vocabRecv:
                             self.vocabRecv.append(p)
                             recv.append(self.vocabRecv.index(p))
@@ -231,10 +262,10 @@ class PreProcess():
                 count += 1
                 if count == MAX_DATA / 2:
                     break
-
+            print("Total time taken to process malign folder -- ", str(dt.now() - mt))
         except Exception as e:
-            print e.message, e.args
-            pass
+            print e.message
+            exit(0)
 
     def makeDataFrames(self):
         '''
@@ -298,7 +329,12 @@ class PreProcess():
             print "Error while creating malign dataframe"
             print e.args, e.message
             exit(0)
-        self.labels =  [0]*self.dfBenign.shape[0] + [1]*self.dfMalign.shape[0]
+
+        self.dfBenign.to_csv("csv/benign.csv", index=False)
+
+        self.dfMalign.to_csv("csv/malign.csv", index=False)
+
+        self.labels =  np.array([0]*self.dfBenign.shape[0] + [1]*self.dfMalign.shape[0])
         self.feats = pd.concat([self.dfBenign, self.dfMalign])
 
         # print(self.df)
@@ -306,6 +342,12 @@ class PreProcess():
 
 
     def makeHotMatrix(self, vec2D, len):
+        '''
+        Helper method to create a Hot Matrix of occurences
+        :param vec2D: All the indices of data points
+        :param len: dimnsion of each hot vector
+        :return: A Hot matrix of shape(length(vec2D), len)
+        '''
 
         hotMat = list()
         for vec in vec2D:
@@ -316,6 +358,12 @@ class PreProcess():
         return hotMat
 
     def makeHotVector(self, vec, len):
+        '''
+        Helper method to create a Hot vector of occurences
+        :param vec: the indices of the vector that are active
+        :param len: the total length/dimension of the hot vector
+        :return: Hot Vector of shape(1,len)
+        '''
 
         hotVec = np.zeros(len, dtype='int')
         hotVec[vec] = 1
