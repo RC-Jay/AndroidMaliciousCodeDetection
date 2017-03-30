@@ -5,7 +5,7 @@ from DL import *
 ################# Driver code #####################
 
 data = PreProcess("/media/jaydeep/Just Tv/Dataset/")
-if micBeforeAE:
+if MIC_BEFORE_AE:
     X, y = data.getFeaturesMutualInfoClassif()
 else:
     X, y = data.getFeats()
@@ -16,7 +16,7 @@ ae.fit()
 
 X = ae.encode(np.array(X)) # Encoding/Mapping the exisiting feature set to lower dimensional space.
 
-if micAfterAE:
+if MIC_AFTER_AE:
     micIdx = mic(X.values[:, :].astype(float), y)
     idx = np.nonzero(micIdx)
     return (np.array(X)[idx], y[idx])

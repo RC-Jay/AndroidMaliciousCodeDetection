@@ -19,8 +19,10 @@ from androguard.misc import *
 from datetime import datetime as dt
 
 LOAD_DATA = False
-MAKE_DICT = True
+MAKE_DICT = False
 LOAD_AE = False
 LOAD_FEATS = False
+MIC_BEFORE_AE = False
+MIC_AFTER_AE = False
 
 MAX_DATA = 502
